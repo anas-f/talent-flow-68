@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { API_CONFIG } from '@/config/api';
 
 interface User {
   id: string;
@@ -76,21 +77,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const mockUser = MOCK_USERS.find(u => u.email === email && u.password === password);
-    
-    if (mockUser) {
-      const { password: _, ...userWithoutPassword } = mockUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem('user', JSON.stringify(userWithoutPassword));
+    try {
+      const response = await fetch(API_CONFIG.auth, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'login', email, password })
+      });
+      
+      if (!response.ok) {
+        setIsLoading(false);
+        return { success: false, error: 'Invalid email or password' };
+      }
+      
+      const userData = await response.json();
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
       setIsLoading(false);
       return { success: true };
+    } catch (error) {
+      setIsLoading(false);
+      return { success: false, error: 'Network error. Please try again.' };
     }
-    
-    setIsLoading(false);
-    return { success: false, error: 'Invalid email or password' };
   };
 
   const logout = () => {
