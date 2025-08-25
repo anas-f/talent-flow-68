@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, Users, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Users } from 'lucide-react';
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -44,9 +44,6 @@ export default function Login() {
     setIsLoading(false);
   };
 
-  const demoLogin = (email: string, password: string) => {
-    setFormData({ email, password });
-  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -63,33 +60,6 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Demo Accounts */}
-        <Card className="border-dashed">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Demo Accounts</CardTitle>
-            <CardDescription className="text-xs">Click to auto-fill credentials</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-between text-xs"
-              onClick={() => demoLogin('admin@company.com', 'admin123')}
-            >
-              <span>Admin Account</span>
-              <ArrowRight className="w-3 h-3" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-between text-xs"
-              onClick={() => demoLogin('hr@company.com', 'hr123')}
-            >
-              <span>HR Manager</span>
-              <ArrowRight className="w-3 h-3" />
-            </Button>
-          </CardContent>
-        </Card>
 
         {/* Login Form */}
         <Card>
@@ -106,7 +76,7 @@ export default function Login() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@company.com"
+                  placeholder="Enter your email"
                   value={formData.email}
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   required
