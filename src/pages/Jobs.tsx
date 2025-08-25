@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
+import { api } from "@/lib/api";
 import {
   Select,
   SelectContent,
@@ -62,73 +63,45 @@ export default function Jobs() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [jobs, setJobs] = useState<Job[]>([
-    {
-      id: 1,
-      title: "Senior Frontend Developer",
-      department: "Engineering",
-      type: "Full-time",
-      location: "Paris, France",
-      remote: true,
-      status: "Active",
-      applicants: 23,
-      postedDate: "2024-01-15",
-      salary: "€60k - €80k",
-      urgency: "High"
-    },
-    {
-      id: 2,
-      title: "Product Manager",
-      department: "Product",
-      type: "Full-time",
-      location: "Lyon, France",
-      remote: false,
-      status: "Active",
-      applicants: 45,
-      postedDate: "2024-01-10",
-      salary: "€70k - €90k",
-      urgency: "Medium"
-    },
-    {
-      id: 3,
-      title: "UX Designer",
-      department: "Design",
-      type: "Contract",
-      location: "Remote",
-      remote: true,
-      status: "Draft",
-      applicants: 0,
-      postedDate: "2024-01-20",
-      salary: "€45k - €55k",
-      urgency: "Low"
-    },
-    {
-      id: 4,
-      title: "Backend Developer",
-      department: "Engineering",
-      type: "Full-time",
-      location: "Marseille, France",
-      remote: true,
-      status: "Closed",
-      applicants: 67,
-      postedDate: "2023-12-15",
-      salary: "€55k - €75k",
-      urgency: "Medium"
-    },
-    {
-      id: 5,
-      title: "Data Scientist",
-      department: "Analytics",
-      type: "Full-time",
-      location: "Paris, France",
-      remote: true,
-      status: "Active",
-      applicants: 31,
-      postedDate: "2024-01-12",
-      salary: "€65k - €85k",
-      urgency: "High"
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const fetchJobs = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getJobs();
+      
+      // Transform API response to match our Job interface
+      const transformedJobs = response.map((job: any, index: number) => ({
+        id: job.id || index + 1,
+        title: job["Intitulé du Poste"] || job.title || "Unknown Position",
+        department: job.department || "General",
+        type: job["Type d'Emploi"] || job.type || "Full-time",
+        location: job.Localisation || job.location || "Remote",
+        remote: job.remote || true,
+        status: job.Active ? "Active" : "Draft",
+        applicants: job.applicants || 0,
+        postedDate: job.created_at || new Date().toISOString().split('T')[0],
+        salary: job.salary || "Negotiable",
+        urgency: job.urgency || "Medium"
+      }));
+      
+      setJobs(transformedJobs);
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch jobs. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   const handleDeleteJob = (id: number) => {
     if (window.confirm('Are you sure you want to delete this job posting? This action cannot be undone.')) {
@@ -206,7 +179,7 @@ export default function Jobs() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Jobs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div>
+            <div className="text-2xl font-bold">{jobs.length}</div>
           </CardContent>
         </Card>
         <Card className="hr-card">
@@ -214,7 +187,7 @@ export default function Jobs() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Active</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">3</div>
+            <div className="text-2xl font-bold text-success">{jobs.filter(j => j.status === 'Active').length}</div>
           </CardContent>
         </Card>
         <Card className="hr-card">
@@ -222,7 +195,7 @@ export default function Jobs() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Draft</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">1</div>
+            <div className="text-2xl font-bold text-warning">{jobs.filter(j => j.status === 'Draft').length}</div>
           </CardContent>
         </Card>
         <Card className="hr-card">
@@ -230,7 +203,7 @@ export default function Jobs() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Applicants</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">166</div>
+            <div className="text-2xl font-bold text-foreground">{jobs.reduce((sum, job) => sum + job.applicants, 0)}</div>
           </CardContent>
         </Card>
       </div>
@@ -295,7 +268,20 @@ export default function Jobs() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredJobs.map((job) => (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      Loading jobs...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredJobs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      No jobs found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredJobs.map((job) => (
                   <TableRow key={job.id} className="hover:bg-muted/50">
                     <TableCell>
                       <div className="space-y-1">

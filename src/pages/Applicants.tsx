@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/use-toast";
+import { api } from "@/lib/api";
 import {
   Select,
   SelectContent,
@@ -42,98 +44,71 @@ import {
   Star
 } from "lucide-react";
 
+interface Applicant {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  currentRole: string;
+  appliedFor: string;
+  experience: string;
+  location: string;
+  stage: string;
+  status: string;
+  appliedDate: string;
+  skills: string[];
+  rating: number;
+  source: string;
+}
+
 export default function Applicants() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [stageFilter, setStageFilter] = useState("all");
+  const [applicants, setApplicants] = useState<Applicant[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const applicants = [
-    {
-      id: 1,
-      firstName: "Sarah",
-      lastName: "Johnson",
-      email: "sarah.johnson@email.com",
-      phone: "+33 1 23 45 67 89",
-      currentRole: "Frontend Developer",
-      appliedFor: "Senior Frontend Developer",
-      experience: "5 years",
-      location: "Paris, France",
-      stage: "Technical Interview",
-      status: "Active",
-      appliedDate: "2024-01-15",
-      skills: ["React", "TypeScript", "Node.js"],
-      rating: 4.5,
-      source: "LinkedIn"
-    },
-    {
-      id: 2,
-      firstName: "Jean",
-      lastName: "Dupont",
-      email: "jean.dupont@email.com",
-      phone: "+33 1 98 76 54 32",
-      currentRole: "Product Manager",
-      appliedFor: "Senior Product Manager",
-      experience: "7 years",
-      location: "Lyon, France",
-      stage: "Final Interview",
-      status: "Active",
-      appliedDate: "2024-01-12",
-      skills: ["Product Strategy", "Analytics", "Leadership"],
-      rating: 4.8,
-      source: "Company Website"
-    },
-    {
-      id: 3,
-      firstName: "Marie",
-      lastName: "Martin",
-      email: "marie.martin@email.com",
-      phone: "+33 1 11 22 33 44",
-      currentRole: "UX Designer",
-      appliedFor: "Senior UX Designer",
-      experience: "4 years",
-      location: "Remote",
-      stage: "Phone Screen",
-      status: "On Hold",
-      appliedDate: "2024-01-18",
-      skills: ["Figma", "User Research", "Prototyping"],
-      rating: 4.2,
-      source: "Referral"
-    },
-    {
-      id: 4,
-      firstName: "Pierre",
-      lastName: "Dubois",
-      email: "pierre.dubois@email.com",
-      phone: "+33 1 55 66 77 88",
-      currentRole: "Backend Developer",
-      appliedFor: "Backend Developer",
-      experience: "3 years",
-      location: "Marseille, France",
-      stage: "Rejected",
-      status: "Inactive",
-      appliedDate: "2024-01-08",
-      skills: ["Python", "Django", "PostgreSQL"],
-      rating: 3.2,
-      source: "Job Board"
-    },
-    {
-      id: 5,
-      firstName: "Clara",
-      lastName: "Bernard",
-      email: "clara.bernard@email.com",
-      phone: "+33 1 44 55 66 77",
-      currentRole: "Data Scientist",
-      appliedFor: "Senior Data Scientist",
-      experience: "6 years",
-      location: "Paris, France",
-      stage: "Offer Extended",
-      status: "Active",
-      appliedDate: "2024-01-10",
-      skills: ["Python", "Machine Learning", "Statistics"],
-      rating: 4.9,
-      source: "LinkedIn"
+  useEffect(() => {
+    fetchApplications();
+  }, []);
+
+  const fetchApplications = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getApplications();
+      
+      // Transform API response to match our Applicant interface
+      const transformedApplicants = response.map((app: any, index: number) => ({
+        id: app.id || index + 1,
+        firstName: app.first_name || app.firstName || "Unknown",
+        lastName: app.last_name || app.lastName || "User",
+        email: app.email || "no-email@example.com",
+        phone: app.phone || app.telephone || "+33 1 00 00 00 00",
+        currentRole: app.current_role || app.currentRole || "Not specified",
+        appliedFor: app.applied_for || app.position || "Unknown Position",
+        experience: app.experience || "Not specified",
+        location: app.location || app.ville || "Remote",
+        stage: app.stage || "Applied",
+        status: app.status || "Active",
+        appliedDate: app.applied_date || app.created_at || new Date().toISOString().split('T')[0],
+        skills: app.skills || app.competences || [],
+        rating: app.rating || 0,
+        source: app.source || "Direct Application"
+      }));
+      
+      setApplicants(transformedApplicants);
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch applications. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -204,7 +179,7 @@ export default function Applicants() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Applicants</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">247</div>
+            <div className="text-2xl font-bold">{applicants.length}</div>
           </CardContent>
         </Card>
         <Card className="hr-card">
@@ -212,7 +187,7 @@ export default function Applicants() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Active</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">189</div>
+            <div className="text-2xl font-bold text-success">{applicants.filter(a => a.status === 'Active').length}</div>
           </CardContent>
         </Card>
         <Card className="hr-card">
@@ -220,7 +195,7 @@ export default function Applicants() {
             <CardTitle className="text-sm font-medium text-muted-foreground">In Process</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">43</div>
+            <div className="text-2xl font-bold text-warning">{applicants.filter(a => a.status === 'On Hold').length}</div>
           </CardContent>
         </Card>
         <Card className="hr-card">
@@ -228,7 +203,11 @@ export default function Applicants() {
             <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">15</div>
+            <div className="text-2xl font-bold text-foreground">{applicants.filter(a => {
+              const weekAgo = new Date();
+              weekAgo.setDate(weekAgo.getDate() - 7);
+              return new Date(a.appliedDate) > weekAgo;
+            }).length}</div>
           </CardContent>
         </Card>
       </div>
@@ -293,7 +272,20 @@ export default function Applicants() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {applicants.map((applicant) => (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      Loading applications...
+                    </TableCell>
+                  </TableRow>
+                ) : applicants.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      No applications found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  applicants.map((applicant) => (
                   <TableRow key={applicant.id} className="hover:bg-muted/50">
                     <TableCell>
                       <div className="space-y-1">
