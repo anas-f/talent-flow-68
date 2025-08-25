@@ -91,11 +91,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: 'Invalid email or password' };
       }
       
-      const userData = await response.json();
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      setIsLoading(false);
-      return { success: true };
+      const data = await response.json();
+      
+      if (data.status === 'success' && data.token) {
+        // Store token
+        localStorage.setItem('authToken', data.token);
+        
+        // Create user object (you might want to decode JWT or make another API call for user data)
+        const userData = {
+          id: email,
+          email: email,
+          firstName: 'User',
+          lastName: 'Name',
+          role: 'User',
+          preferences: {
+            language: 'en',
+            theme: 'dark',
+            emailNotifications: true
+          }
+        };
+        
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setIsLoading(false);
+        return { success: true };
+      } else {
+        setIsLoading(false);
+        return { success: false, error: data.message || 'Login failed' };
+      }
     } catch (error) {
       setIsLoading(false);
       return { success: false, error: 'Network error. Please try again.' };
@@ -105,6 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('authToken');
   };
 
   const register = async (userData: Partial<User> & { password: string }) => {

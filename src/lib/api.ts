@@ -1,11 +1,13 @@
 import { API_CONFIG } from "@/config/api";
 
 async function request(url: string, method = "GET", body: any = null) {
+  const token = localStorage.getItem('authToken') || API_CONFIG.token;
+  
   const options: RequestInit = {
     method,
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${API_CONFIG.token}`
+      "Authorization": `Bearer ${token}`
     }
   };
 
