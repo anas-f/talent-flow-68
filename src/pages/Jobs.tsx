@@ -282,7 +282,7 @@ export default function Jobs() {
                   </TableRow>
                 ) : (
                   filteredJobs.map((job) => (
-                  <TableRow key={job.id} className="hover:bg-muted/50">
+                    <TableRow key={job.id} className="hover:bg-muted/50">
                     <TableCell>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
@@ -357,8 +357,9 @@ export default function Jobs() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
-                  </TableRow>
-                ))}
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
