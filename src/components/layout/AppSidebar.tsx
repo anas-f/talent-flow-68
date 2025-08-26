@@ -40,9 +40,10 @@ const mainNavItems = [
 ];
 
 const secondaryNavItems = [
+  { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Talent Pool", url: "/talent-pool", icon: UserPlus },
   { title: "Templates", url: "/templates", icon: FileText },
-  { title: "Reports", url: "/reports", icon: BarChart3 },
+  { title: "Reports", url: "/reports", icon: FileText },
 ];
 
 export function AppSidebar() {

@@ -1,48 +1,28 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
-import { 
-  Award, 
-  BarChart2, 
-  Download, 
-  Eye, 
-  FileText, 
-  Filter, 
-  MapPin, 
-  Mail, 
-  Phone, 
-  Search, 
-  User, 
-  Users,
-  Plus,
-  Star,
-  AlertCircle,
-  RefreshCw
-} from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { api } from "@/lib/api";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ApplicantsTable } from "@/components/applicants/ApplicantsTable";
+import { ApplicantsStats } from "@/components/applicants/ApplicantsStats";
+import { ApplicantFilters } from "@/components/applicants/ApplicantFilters";
+import { useApplicants } from "@/hooks/useApplicants";
+import { getEmbeddableUrl } from "@/utils/fileHelpers";
+import { 
+  BarChart2, 
+  FileText, 
+  Download, 
+  AlertCircle, 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Award 
+} from "lucide-react";
 
 interface Applicant {
   id: number;
@@ -72,7 +52,6 @@ export default function Applicants() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(null);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [cvPreviewError, setCvPreviewError] = useState<boolean>(false);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Applicant; direction: 'asc' | 'desc' } | null>({
@@ -81,7 +60,7 @@ export default function Applicants() {
   });
   
   // Pagination state
-  const pageSize = 20; // Set page size to 20 as requested // Number of items per page
+  const pageSize = 20;
   const [currentPage, setCurrentPage] = useState(0);
   
   const { theme } = useTheme();
@@ -92,87 +71,21 @@ export default function Applicants() {
     setIsViewDialogOpen(true);
   };
 
-  // Transform API response to match our Applicant interface
-  const transformApplicant = (app: any): Applicant => {
-    // Parse the Overall score (e.g., "9/10" -> 9)
-    const rating = app.Overall ? parseInt(app.Overall.split('/')[0]) : 0;
-    
-    // Parse the skills array from the JSON string
-    let skills: string[] = [];
-    try {
-      if (app.Reasoning) {
-        skills = JSON.parse(app.Reasoning);
-      }
-    } catch (e) {
-      console.error('Error parsing skills:', e);
-    }
-
-    return {
-      id: app.row_number,
-      firstName: app['First Nmae'] || 'Unknown',
-      lastName: app['Last Name'] || 'Unknown',
-      email: app.Email || 'No email',
-      phone: app.phone || 'No phone',
-      currentRole: app['Curent Role'] || 'Not specified',
-      appliedFor: app['Job Title'] || 'Not specified',
-      experience: app.Experience ? `${app.Experience}/10` : 'Not specified',
-      location: app.Location || 'Not specified',
-      stage: 'Applied', // Default stage
-      status: 'Active', // Default status
-      appliedDate: new Date().toISOString().split('T')[0], // Current date as fallback
-      skills: skills,
-      rating: parseFloat(app.Overall) || 0,
-      source: 'Application', // Default source
-      cvUrl: app.CV,
-      overallScore: app.Overall,
-      technicalSkills: app['Technical Skills'],
-      achievement: app.Achievement,
-      education: app.Education,
-      reasoning: skills
-    };
-  };
-
-  // Fetch all applications at once for full dataset sorting
+  // Fetch applications using the custom hook
   const {
-    data: allData,
-    status: queryStatus,
+    data: allData = [],
+    isLoading,
     error,
     refetch
-  } = useQuery({
-    queryKey: ['applications', searchTerm, statusFilter, sortConfig],
-    queryFn: async () => {
-      try {
-        const response = await api.getApplications();
-        return response.map(transformApplicant);
-      } catch (err) {
-        throw new Error('Failed to fetch applications');
-      }
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  } = useApplicants();
 
   // Calculate pagination
-  const totalPages = Math.ceil((allData?.length || 0) / pageSize);
+  const totalPages = Math.ceil(allData.length / pageSize);
   const startIndex = currentPage * pageSize;
   const endIndex = startIndex + pageSize;
-  
-  // Calculate statistics
-  const totalApplicants = allData?.length || 0;
-  const activeApplicants = allData?.filter(a => a.status === 'Active').length || 0;
-  const newThisWeek = allData?.filter(a => {
-    if (!a.appliedDate) return false;
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    return new Date(a.appliedDate) > weekAgo;
-  }).length || 0;
-  
-  // For backward compatibility
-  const allApplicants = allData || [];
 
   // Sort and filter the data
   const sortedAndFilteredApplicants = useMemo(() => {
-    if (!allData) return [];
-    
     let result = [...allData];
     
     // Filter
@@ -228,33 +141,6 @@ export default function Applicants() {
     setCurrentPage(0);
   }, [searchTerm, statusFilter, sortConfig]);
 
-  // Handle search and filter changes
-  useEffect(() => {
-    // Refetch when search or filter changes
-    const timer = setTimeout(() => {
-      refetch();
-    }, 300);
-    
-    return () => clearTimeout(timer);
-  }, [searchTerm, statusFilter, refetch]);
-
-  const getStatusBadge = (status: string) => {
-    const baseStyles = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium';
-    
-    switch (status) {
-      case 'Active':
-        return <span className={`${baseStyles} bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400`}>{status}</span>;
-      case 'Inactive':
-        return <span className={`${baseStyles} bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300`}>{status}</span>;
-      case 'Hired':
-        return <span className={`${baseStyles} bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400`}>{status}</span>;
-      case 'Rejected':
-        return <span className={`${baseStyles} bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400`}>{status}</span>;
-      default:
-        return <span className={`${baseStyles} bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300`}>{status}</span>;
-    }
-  };
-
   const requestSort = (key: keyof Applicant) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -263,17 +149,8 @@ export default function Applicants() {
     setSortConfig({ key, direction });
   };
 
-  const getSortIndicator = (key: keyof Applicant) => {
-    if (!sortConfig || sortConfig.key !== key) {
-      return '↕';
-    }
-    return sortConfig.direction === 'asc' ? '↑' : '↓';
-  };
-
-  const isLoading = queryStatus === 'pending';
-
   // Show loading state when fetching data
-  if (isLoading && allApplicants.length === 0) {
+  if (isLoading && allData.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -299,96 +176,23 @@ export default function Applicants() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Applicants</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl md:text-2xl font-bold text-primary">
-              {totalApplicants}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Active</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl md:text-2xl font-bold text-primary">
-              {activeApplicants}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">In Process</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl md:text-2xl font-bold text-primary">
-              {allData?.filter(a => a.status === 'On Hold').length || 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">This Week</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl md:text-2xl font-bold text-primary">
-              {newThisWeek}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <ApplicantsStats applicants={allData} />
 
       {/* Search, Filter and Actions */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <div className="flex flex-col sm:flex-row w-full gap-3">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search applicants..."
-              className="pl-10 w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center space-x-2 w-full sm:w-auto">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <Filter className="h-4 w-4 mr-2 opacity-50" />
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="On Hold">In Process</SelectItem>
-                <SelectItem value="Rejected">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2 w-full md:w-auto">
-          <Button variant="outline" className="w-full md:w-auto">
-            <BarChart2 className="w-4 h-4 mr-2" />
-            Analyze
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => refetch()}
-            disabled={queryStatus === 'pending'}
-            className="w-full md:w-auto"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${queryStatus === 'pending' ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button className="w-full md:w-auto">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Applicant
-          </Button>
-        </div>
+      <ApplicantFilters
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        onRefresh={refetch}
+        isLoading={isLoading}
+      />
+
+      <div className="flex items-center justify-end mb-4">
+        <Button variant="outline" onClick={() => window.location.href = '/analytics'}>
+          <BarChart2 className="w-4 h-4 mr-2" />
+          View Analytics
+        </Button>
       </div>
 
       {/* Applicants Table */}
@@ -398,92 +202,13 @@ export default function Applicants() {
           <CardDescription>Search and filter candidate applications</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead 
-                    className="w-[250px] cursor-pointer"
-                    onClick={() => requestSort('firstName')}
-                  >
-                    Name {getSortIndicator('firstName')}
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer"
-                    onClick={() => requestSort('appliedFor')}
-                  >
-                    Applied For {getSortIndicator('appliedFor')}
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer"
-                    onClick={() => requestSort('status')}
-                  >
-                    Status {getSortIndicator('status')}
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer w-40"
-                    onClick={() => requestSort('overallScore')}
-                  >
-                    Overall Score {getSortIndicator('overallScore')}
-                  </TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentPageData.map((applicant) => (
-                  <TableRow key={applicant.id}>
-                    <TableCell className="font-medium">
-                      {applicant.firstName} {applicant.lastName}
-                    </TableCell>
-                    <TableCell>{applicant.appliedFor}</TableCell>
-                    <TableCell>{getStatusBadge(applicant.status)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full ${
-                              parseFloat(applicant.overallScore || '0') >= 7 
-                                ? 'bg-green-500' 
-                                : parseFloat(applicant.overallScore || '0') >= 5 
-                                  ? 'bg-yellow-500' 
-                                  : 'bg-red-500'
-                            }`}
-                            style={{ 
-                              width: `${(parseFloat(applicant.overallScore || '0') / 10) * 100}%`
-                            }}
-                          />
-                        </div>
-                        <span>
-                          {applicant.overallScore && applicant.overallScore.endsWith('/10') 
-                            ? applicant.overallScore 
-                            : `${applicant.overallScore || '0'}/10`
-                          }
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleViewProfile(applicant)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {queryStatus === 'pending' && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-4">
-                      <div className="flex justify-center">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <ApplicantsTable
+            applicants={currentPageData}
+            onViewProfile={handleViewProfile}
+            sortConfig={sortConfig}
+            onSort={requestSort}
+            isLoading={isLoading}
+          />
           
           {/* Pagination Controls */}
           <div className="flex items-center justify-between px-6 py-4 border-t">

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,81 +17,99 @@ import {
   FileText,
   CheckCircle2
 } from "lucide-react";
+import { useApplicants } from "@/hooks/useApplicants";
+import { useJobs } from "@/hooks/useJobs";
 
 export default function Dashboard() {
-  const stats = [
-    {
-      title: "Active Jobs",
-      value: "12",
-      change: "+2",
-      changeType: "increase",
-      icon: Briefcase,
-      description: "Currently hiring"
-    },
-    {
-      title: "Total Applicants",
-      value: "247",
-      change: "+18",
-      changeType: "increase", 
-      icon: Users,
-      description: "This month"
-    },
-    {
-      title: "Interviews Scheduled",
-      value: "8",
-      change: "-3",
-      changeType: "decrease",
-      icon: Calendar,
-      description: "This week"
-    },
-    {
-      title: "Time to Hire",
-      value: "18 days",
-      change: "-2 days",
-      changeType: "decrease",
-      icon: Clock,
-      description: "Average"
-    }
-  ];
+  const { data: applicants = [], isLoading: applicantsLoading } = useApplicants();
+  const { data: jobs = [], isLoading: jobsLoading } = useJobs();
 
-  const recentJobs = [
-    {
-      title: "Senior Frontend Developer",
-      applicants: 23,
-      status: "Active",
-      posted: "2 days ago",
-      urgency: "high"
-    },
-    {
-      title: "Product Manager",
-      applicants: 45,
-      status: "Active", 
-      posted: "1 week ago",
-      urgency: "medium"
-    },
-    {
-      title: "UX Designer",
-      applicants: 31,
-      status: "Draft",
-      posted: "3 days ago",
-      urgency: "low"
-    }
-  ];
+  const stats = useMemo(() => {
+    const activeJobs = jobs.filter(job => job.status === 'Active').length;
+    const totalApplicants = applicants.length;
+    const newThisWeek = applicants.filter(a => {
+      if (!a.appliedDate) return false;
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return new Date(a.appliedDate) > weekAgo;
+    }).length;
 
-  const pipelineStages = [
-    { name: "Sourced", count: 45, percentage: 100 },
-    { name: "Phone Screen", count: 32, percentage: 71 },
-    { name: "Technical", count: 18, percentage: 40 },
-    { name: "Final", count: 8, percentage: 18 },
-    { name: "Offer", count: 3, percentage: 7 }
-  ];
+    return [
+      {
+        title: "Active Jobs",
+        value: activeJobs.toString(),
+        change: "+2",
+        changeType: "increase",
+        icon: Briefcase,
+        description: "Currently hiring"
+      },
+      {
+        title: "Total Applicants",
+        value: totalApplicants.toString(),
+        change: `+${newThisWeek}`,
+        changeType: "increase", 
+        icon: Users,
+        description: "This month"
+      },
+      {
+        title: "Interviews Scheduled",
+        value: "8",
+        change: "-3",
+        changeType: "decrease",
+        icon: Calendar,
+        description: "This week"
+      },
+      {
+        title: "Applications/Job",
+        value: jobs.length > 0 ? (totalApplicants / jobs.length).toFixed(1) : "0",
+        change: "+2.1",
+        changeType: "increase",
+        icon: Clock,
+        description: "Average"
+      }
+    ];
+  }, [applicants, jobs]);
+
+  const recentJobs = useMemo(() => {
+    return jobs.slice(0, 3).map(job => ({
+      title: job.title,
+      applicants: applicants.filter(app => app.appliedFor === job.title).length,
+      status: job.status,
+      posted: new Date(job.postedDate).toLocaleDateString(),
+      urgency: job.urgency || "medium"
+    }));
+  }, [jobs, applicants]);
+
+  const pipelineStages = useMemo(() => {
+    const totalApplicants = applicants.length;
+    const activeApplicants = applicants.filter(a => a.status === 'Active').length;
+    const rejectedApplicants = applicants.filter(a => a.status === 'Rejected').length;
+    
+    return [
+      { name: "Applied", count: totalApplicants, percentage: 100 },
+      { name: "Active", count: activeApplicants, percentage: totalApplicants > 0 ? (activeApplicants / totalApplicants) * 100 : 0 },
+      { name: "In Review", count: Math.floor(activeApplicants * 0.6), percentage: totalApplicants > 0 ? (activeApplicants * 0.6 / totalApplicants) * 100 : 0 },
+      { name: "Interview", count: Math.floor(activeApplicants * 0.3), percentage: totalApplicants > 0 ? (activeApplicants * 0.3 / totalApplicants) * 100 : 0 },
+      { name: "Final", count: Math.floor(activeApplicants * 0.1), percentage: totalApplicants > 0 ? (activeApplicants * 0.1 / totalApplicants) * 100 : 0 }
+    ];
+  }, [applicants]);
 
   const quickActions = [
     { label: "Add Job", icon: Plus, variant: "default" as const },
     { label: "Review Applications", icon: Eye, variant: "outline" as const },
     { label: "Schedule Interview", icon: Calendar, variant: "outline" as const },
-    { label: "Generate Report", icon: FileText, variant: "outline" as const }
+    { label: "View Analytics", icon: FileText, variant: "outline" as const }
   ];
+
+  const isLoading = applicantsLoading || jobsLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -223,9 +242,15 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <p className="font-medium">Senior Frontend Developer</p>
-              <p className="text-sm text-muted-foreground">45 applications in 3 days</p>
-              <Badge variant="secondary" className="text-xs">High Interest</Badge>
+              <p className="font-medium">
+                {recentJobs[0]?.title || 'No jobs available'}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {recentJobs[0]?.applicants || 0} applications
+              </p>
+              <Badge variant="secondary" className="text-xs">
+                {recentJobs[0]?.urgency === 'high' ? 'High Interest' : 'Active'}
+              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -250,14 +275,20 @@ export default function Dashboard() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-success" />
-              Recent Hires
+              Active Applications
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <p className="font-medium">2 offers accepted</p>
-              <p className="text-sm text-muted-foreground">This month: UI Designer, DevOps</p>
-              <Badge className="text-xs bg-success/10 text-success">Success</Badge>
+              <p className="font-medium">
+                {applicants.filter(a => a.status === 'Active').length} active
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Out of {applicants.length} total applications
+              </p>
+              <Badge className="text-xs bg-success/10 text-success">
+                {applicants.length > 0 ? Math.round((applicants.filter(a => a.status === 'Active').length / applicants.length) * 100) : 0}% active rate
+              </Badge>
             </div>
           </CardContent>
         </Card>

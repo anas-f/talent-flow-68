@@ -12,6 +12,7 @@ import Jobs from "./pages/Jobs";
 import AddJob from "./pages/AddJob";
 import ViewJob from "./pages/ViewJob";
 import Applicants from "./pages/Applicants";
+import Analytics from "./pages/Analytics";
 import Interviews from "./pages/Interviews";
 import Pipeline from "./pages/Pipeline";
 import TalentPool from "./pages/TalentPool";
@@ -82,6 +83,13 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout>
                     <Applicants />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/analytics" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Analytics />
                   </AppLayout>
                 </ProtectedRoute>
               } />
