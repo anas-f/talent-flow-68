@@ -44,6 +44,7 @@ const secondaryNavItems = [
   { title: "Talent Pool", url: "/talent-pool", icon: UserPlus },
   { title: "Templates", url: "/templates", icon: FileText },
   { title: "Reports", url: "/reports", icon: FileText },
+  { title: "Users", url: "/users", icon: Users },
 ];
 
 export function AppSidebar() {

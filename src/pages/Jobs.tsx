@@ -271,7 +271,7 @@ export default function Jobs() {
           </div>
           <div className="flex gap-2">
             <Button 
-              onClick={() => navigate('/jobs/add')}
+              onClick={() => navigate('/jobs/create')}
               size="sm"
               className="gap-2"
             >

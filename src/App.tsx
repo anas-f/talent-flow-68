@@ -9,8 +9,6 @@ import { AppLayout } from "./components/layout/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Jobs from "./pages/Jobs";
-import AddJob from "./pages/AddJob";
-import ViewJob from "./pages/ViewJob";
 import Applicants from "./pages/Applicants";
 import Analytics from "./pages/Analytics";
 import Interviews from "./pages/Interviews";
@@ -21,10 +19,15 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import ChangePassword from "./pages/auth/ChangePassword";
 import Users from "./pages/Users";
+import CreateUser from "./pages/users/CreateUser";
+import EditUser from "./pages/users/EditUser";
+import CreateJob from "./pages/jobs/CreateJob";
+import JobDetails from "./pages/jobs/JobDetails";
+import EditJob from "./pages/jobs/EditJob";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,7 +43,6 @@ const App = () => (
             <Routes>
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               
@@ -59,24 +61,45 @@ const App = () => (
                   </AppLayout>
                 </ProtectedRoute>
               } />
-              <Route path="/jobs/add" element={
+              <Route path="/jobs/create" element={
                 <ProtectedRoute>
                   <AppLayout>
-                    <AddJob />
+                    <CreateJob />
                   </AppLayout>
                 </ProtectedRoute>
               } />
               <Route path="/jobs/:id" element={
                 <ProtectedRoute>
                   <AppLayout>
-                    <ViewJob />
+                    <JobDetails />
                   </AppLayout>
                 </ProtectedRoute>
               } />
-              <Route path="/jobs/edit/:id" element={
+              <Route path="/jobs/:id/edit" element={
                 <ProtectedRoute>
                   <AppLayout>
-                    <AddJob />
+                    <EditJob />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/change-password" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <ChangePassword />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/users/create" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <CreateUser />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              <Route path="/users/:id/edit" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <EditUser />
                   </AppLayout>
                 </ProtectedRoute>
               } />

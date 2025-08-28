@@ -32,7 +32,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-export default function AddJob() {
+export default function CreateJob() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     title: "",
