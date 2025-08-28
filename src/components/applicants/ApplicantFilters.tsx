@@ -14,8 +14,11 @@ interface ApplicantFiltersProps {
   onSearchChange: (value: string) => void;
   statusFilter: string;
   onStatusFilterChange: (value: string) => void;
+  appliedForFilter: string;
+  onAppliedForFilterChange: (value: string) => void;
   onRefresh: () => void;
   isLoading: boolean;
+  jobTitles?: string[];
 }
 
 export function ApplicantFilters({
@@ -23,8 +26,11 @@ export function ApplicantFilters({
   onSearchChange,
   statusFilter,
   onStatusFilterChange,
+  appliedForFilter,
+  onAppliedForFilterChange,
   onRefresh,
-  isLoading
+  isLoading,
+  jobTitles = []
 }: ApplicantFiltersProps) {
   return (
     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
@@ -43,7 +49,7 @@ export function ApplicantFilters({
           <Select value={statusFilter} onValueChange={onStatusFilterChange}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <Filter className="h-4 w-4 mr-2 opacity-50" />
-              <SelectValue placeholder="Filter by status" />
+              <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
@@ -52,18 +58,21 @@ export function ApplicantFilters({
               <SelectItem value="Rejected">Rejected</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={appliedForFilter} onValueChange={onAppliedForFilterChange}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <Filter className="h-4 w-4 mr-2 opacity-50" />
+              <SelectValue placeholder="Applied for" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Positions</SelectItem>
+              {Array.from(new Set(jobTitles)).map((title) => (
+                <SelectItem key={title} value={title}>
+                  {title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      </div>
-      <div className="flex items-center space-x-2 w-full md:w-auto">
-        <Button 
-          variant="outline" 
-          onClick={onRefresh}
-          disabled={isLoading}
-          className="w-full md:w-auto"
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
       </div>
     </div>
   );

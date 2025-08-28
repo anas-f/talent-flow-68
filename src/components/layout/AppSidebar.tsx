@@ -29,12 +29,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+
 
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Jobs", url: "/jobs", icon: Briefcase, badge: "12" },
-  { title: "Applicants", url: "/applicants", icon: Users, badge: "47" },
+  { title: "Jobs", url: "/jobs", icon: Briefcase },
+  { title: "Applicants", url: "/applicants", icon: Users },
   { title: "Interviews", url: "/interviews", icon: Calendar },
   { title: "Pipeline", url: "/pipeline", icon: GitBranch },
 ];
@@ -70,19 +70,29 @@ export function AppSidebar() {
     >
       <div className="p-4 border-b border-border/50">
         {!collapsed ? (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-foreground text-background rounded-lg flex items-center justify-center">
+          <NavLink 
+            to="/" 
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            title="Go to Dashboard"
+          >
+            <div className="w-8 h-8 bg-foreground text-background rounded-lg flex items-center justify-center flex-shrink-0">
               <span className="text-background font-bold text-sm">RH</span>
             </div>
             <div>
               <h2 className="font-semibold text-lg">RH Assistant</h2>
               <p className="text-xs text-muted-foreground">Recruitment Platform</p>
             </div>
-          </div>
+          </NavLink>
         ) : (
-          <div className="w-8 h-8 bg-foreground text-background rounded-lg flex items-center justify-center mx-auto">
-            <span className="text-background font-bold text-sm">RH</span>
-          </div>
+          <NavLink 
+            to="/" 
+            className="block"
+            title="Go to Dashboard"
+          >
+            <div className="w-8 h-8 bg-foreground text-background rounded-lg flex items-center justify-center mx-auto hover:opacity-80 transition-opacity">
+              <span className="text-background font-bold text-sm">RH</span>
+            </div>
+          </NavLink>
         )}
       </div>
 
@@ -136,11 +146,6 @@ export function AppSidebar() {
                       {!collapsed && (
                         <>
                           <span className="flex-1">{item.title}</span>
-                          {item.badge && (
-                            <Badge variant="secondary" className="text-xs px-2 py-0">
-                              {item.badge}
-                            </Badge>
-                          )}
                         </>
                       )}
                     </NavLink>

@@ -128,14 +128,16 @@ export function ApplicantsTable({
                             : 'bg-destructive'
                       }`}
                       style={{ 
-                        width: `${(parseFloat(applicant.overallScore || '0') / 10) * 100}%`
+                        width: `${typeof applicant.overallScore === 'number' ? (applicant.overallScore / 10) * 100 : (parseFloat(applicant.overallScore || '0') / 10) * 100}%`
                       }}
                     />
                   </div>
                   <span>
-                    {applicant.overallScore && applicant.overallScore.endsWith('/10') 
-                      ? applicant.overallScore 
-                      : `${applicant.overallScore || '0'}/10`
+                    {applicant.overallScore 
+                      ? typeof applicant.overallScore === 'string' && applicant.overallScore.endsWith('/10')
+                        ? applicant.overallScore
+                        : `${applicant.overallScore}/10`
+                      : '0/10'
                     }
                   </span>
                 </div>

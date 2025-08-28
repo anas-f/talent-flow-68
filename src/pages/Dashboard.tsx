@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users,
   Briefcase,
@@ -10,19 +11,62 @@ import {
   TrendingUp,
   Clock,
   Target,
-  Plus,
   ArrowUp,
   ArrowDown,
   Eye,
   FileText,
-  CheckCircle2
+  CheckCircle2,
+  Plus as PlusIcon,
+  RefreshCw
 } from "lucide-react";
 import { useApplicants } from "@/hooks/useApplicants";
 import { useJobs } from "@/hooks/useJobs";
 
+// Loading skeleton for stats cards
+const StatsSkeleton = () => (
+  <div className="grid gap-4 md:grid-cols-4">
+    {[1, 2, 3, 4].map((item) => (
+      <Card key={item} className="animate-pulse">
+        <CardHeader className="pb-3">
+          <Skeleton className="h-4 w-3/4" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-8 w-1/2 mt-2" />
+        </CardContent>
+      </Card>
+    ))}
+  </div>
+);
+
+// Loading skeleton for activity items
+const ActivitySkeleton = () => (
+  <div className="space-y-4">
+    {[1, 2, 3, 4, 5].map((i) => (
+      <div key={i} className="flex items-start gap-4 p-3 rounded-lg border">
+        <Skeleton className="h-10 w-10 rounded-full" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+        <Skeleton className="h-3 w-16" />
+      </div>
+    ))}
+  </div>
+);
+
 export default function Dashboard() {
-  const { data: applicants = [], isLoading: applicantsLoading } = useApplicants();
-  const { data: jobs = [], isLoading: jobsLoading } = useJobs();
+  const { data: applicants = [], isLoading: applicantsLoading, refetch: refetchApplicants } = useApplicants();
+  const { data: jobs = [], isLoading: jobsLoading, refetch: refetchJobs } = useJobs();
+  
+  const isLoading = applicantsLoading || jobsLoading;
+  
+  const handleRefresh = async () => {
+    try {
+      await Promise.all([refetchApplicants(), refetchJobs()]);
+    } catch (error) {
+      console.error('Error refreshing dashboard data:', error);
+    }
+  };
 
   const stats = useMemo(() => {
     const activeJobs = jobs.filter(job => job.status === 'Active').length;
@@ -95,39 +139,58 @@ export default function Dashboard() {
   }, [applicants]);
 
   const quickActions = [
-    { label: "Add Job", icon: Plus, variant: "default" as const },
-    { label: "Review Applications", icon: Eye, variant: "outline" as const },
-    { label: "Schedule Interview", icon: Calendar, variant: "outline" as const },
     { label: "View Analytics", icon: FileText, variant: "outline" as const }
   ];
 
-  const isLoading = applicantsLoading || jobsLoading;
-
-  if (isLoading) {
+  if (isLoading && (applicants.length === 0 || jobs.length === 0)) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="space-y-6 p-4 md:p-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-64 mt-2" />
+          </div>
+          <Skeleton className="h-9 w-32" />
+        </div>
+        <StatsSkeleton />
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
+            <Skeleton className="h-6 w-48" />
+            <ActivitySkeleton />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-6 w-48" />
+            <ActivitySkeleton />
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
-            Welcome back! Here's what's happening with your recruitment.
+            Welcome back! Here's what's happening with your hiring.
           </p>
         </div>
-        <div className="flex gap-2">
-          {quickActions.map((action) => (
-            <Button key={action.label} variant={action.variant} size="sm">
-              <action.icon className="w-4 h-4 mr-2" />
-              {action.label}
-            </Button>
-          ))}
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className={`gap-2 ${isLoading ? 'opacity-70' : ''}`}
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          <Button className="gap-2">
+            <PlusIcon className="h-4 w-4" />
+            New Job
+          </Button>
         </div>
       </div>
 

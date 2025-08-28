@@ -27,8 +27,18 @@ interface Applicant {
 
 // Transform API response to match our Applicant interface
 const transformApplicant = (app: any): Applicant => {
-  // Parse the Overall score (e.g., "9/10" -> 9)
-  const rating = app.Overall ? parseInt(app.Overall.split('/')[0]) : 0;
+  // Parse the Overall score (e.g., "9/10" -> 9 or 8 -> 8)
+  let rating = 0;
+  if (app.Overall) {
+    if (typeof app.Overall === 'string') {
+      // Handle both "9/10" and "8" formats
+      const score = app.Overall.split('/')[0];
+      rating = parseFloat(score) || 0;
+    } else {
+      // Handle numeric values
+      rating = Number(app.Overall) || 0;
+    }
+  }
   
   // Parse the skills array from the JSON string
   let skills: string[] = [];
@@ -42,7 +52,7 @@ const transformApplicant = (app: any): Applicant => {
 
   return {
     id: app.row_number,
-    firstName: app['First Nmae'] || 'Unknown',
+    firstName: app['First Name'] || 'Unknown',
     lastName: app['Last Name'] || 'Unknown',
     email: app.Email || 'No email',
     phone: app.phone || 'No phone',
@@ -52,7 +62,7 @@ const transformApplicant = (app: any): Applicant => {
     location: app.Location || 'Not specified',
     stage: 'Applied', // Default stage
     status: 'Active', // Default status
-    appliedDate: new Date().toISOString().split('T')[0], // Current date as fallback
+    appliedDate: app.date || new Date().toISOString().split('T')[0], // Use API date or current date as fallback
     skills: skills,
     rating: parseFloat(app.Overall) || 0,
     source: 'Application', // Default source
@@ -71,8 +81,10 @@ export function useApplicants() {
     queryFn: async () => {
       try {
         const response = await api.getApplications();
-        return response.map(transformApplicant);
+        const transformed = response.map(transformApplicant);
+        return transformed;
       } catch (err) {
+        console.error('Error fetching applications:', err);
         throw new Error('Failed to fetch applications');
       }
     },

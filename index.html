@@ -2,7 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; img-src 'self' data: https:; connect-src 'self' https:; frame-src 'self' https:;" />
+    <meta name="referrer" content="strict-origin" />
     <title>RH Assistant - Modern Recruitment Platform</title>
     <meta name="description" content="Streamline your recruitment process with our modern HR Assistant platform. Manage jobs, candidates, interviews, and hiring pipeline efficiently." />
     <meta name="author" content="RH Assistant" />
@@ -20,11 +24,19 @@
     <meta name="twitter:site" content="@rh_assistant" />
     
     <!-- Apply dark mode by default -->
-    <script>document.documentElement.classList.add('dark')</script>
+    <script type="module">
+      // Add dark mode class
+      document.documentElement.classList.add('dark');
+      
+      // Handle potential module loading errors
+      window.addEventListener('error', (event) => {
+        console.error('Script loading error:', event);
+      }, true);
+    </script>
   </head>
 
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/main.tsx" crossorigin></script>
   </body>
 </html>

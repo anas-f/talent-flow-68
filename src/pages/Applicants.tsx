@@ -1,11 +1,16 @@
 import { useState, useMemo, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useJobTitles } from "@/hooks/useJobTitles";
+import { usePolling } from "@/hooks/usePolling";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { ApplicantsTable } from "@/components/applicants/ApplicantsTable";
 import { ApplicantsStats } from "@/components/applicants/ApplicantsStats";
@@ -21,8 +26,10 @@ import {
   Mail, 
   Phone, 
   MapPin, 
-  Award 
+  Award,
+  RefreshCw
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Applicant {
   id: number;
@@ -51,6 +58,7 @@ interface Applicant {
 export default function Applicants() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [appliedForFilter, setAppliedForFilter] = useState("all");
   const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [cvPreviewError, setCvPreviewError] = useState<boolean>(false);
@@ -79,10 +87,26 @@ export default function Applicants() {
     refetch
   } = useApplicants();
 
-  // Calculate pagination
-  const totalPages = Math.ceil(allData.length / pageSize);
-  const startIndex = currentPage * pageSize;
-  const endIndex = startIndex + pageSize;
+  // Handle refresh - only refresh the table data
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const handleRefresh = async () => {
+    if (isRefreshing) return; // Prevent multiple clicks
+    
+    try {
+      setIsRefreshing(true);
+      // Only show loading for the table, not the whole page
+      await refetch();
+    } catch (error) {
+      console.error('Error refreshing applicants:', error);
+    } finally {
+      // Add a small delay to ensure smooth animation completes
+      setTimeout(() => setIsRefreshing(false), 300);
+    }
+  };
+
+  // Set up polling to refresh data every 30 seconds
+  usePolling(handleRefresh, 30000);
 
   // Sort and filter the data
   const sortedAndFilteredApplicants = useMemo(() => {
@@ -96,8 +120,9 @@ export default function Applicants() {
         applicant.currentRole.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = statusFilter === 'all' || applicant.status === statusFilter;
+      const matchesAppliedFor = appliedForFilter === 'all' || applicant.appliedFor === appliedForFilter;
       
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus && matchesAppliedFor;
     });
 
     // Sort
@@ -129,17 +154,34 @@ export default function Applicants() {
     }
 
     return result;
-  }, [allData, searchTerm, statusFilter, sortConfig]);
+  }, [allData, searchTerm, statusFilter, appliedForFilter, sortConfig]);
+  
+  // Calculate pagination based on filtered data
+  const totalPages = Math.ceil(sortedAndFilteredApplicants.length / pageSize);
+  
+  // Ensure current page is within bounds
+  const safeCurrentPage = Math.min(currentPage, Math.max(0, totalPages - 1));
+  const startIndex = safeCurrentPage * pageSize;
+  const endIndex = startIndex + pageSize;
   
   // Get current page data
   const currentPageData = useMemo(() => {
     return sortedAndFilteredApplicants.slice(startIndex, endIndex);
   }, [sortedAndFilteredApplicants, startIndex, endIndex]);
 
-  // Update current page when filters change
+  // Get job titles from the API
+  const { jobTitles, isLoading: isLoadingJobTitles } = useJobTitles();
+
+  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchTerm, statusFilter, sortConfig]);
+  }, [searchTerm, statusFilter, appliedForFilter, sortConfig]);
+
+  // Combine job titles from API with existing appliedFor values to ensure we don't miss any
+  const allJobTitles = useMemo(() => {
+    const titlesFromApplicants = allData.map(applicant => applicant.appliedFor).filter(Boolean);
+    return Array.from(new Set([...jobTitles, ...titlesFromApplicants]));
+  }, [jobTitles, allData]);
 
   const requestSort = (key: keyof Applicant) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -149,11 +191,72 @@ export default function Applicants() {
     setSortConfig({ key, direction });
   };
 
+  // Loading skeleton for stats cards
+  const LoadingStatsCards = () => (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {[1, 2, 3, 4].map((item) => (
+        <Card key={item} className="animate-pulse">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-6 w-6 rounded-full" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-8 w-1/2 mt-2" />
+            <Skeleton className="h-4 w-full mt-2" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+
+  // Loading skeleton for table
+  const LoadingTable = () => (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-10 w-32" />
+      </div>
+      <div className="rounded-md border">
+        <div className="grid grid-cols-12 gap-4 p-4 border-b">
+          {[1, 2, 3, 4, 5, 6].map((col) => (
+            <Skeleton key={col} className="h-4 w-full" />
+          ))}
+        </div>
+        {[...Array(5)].map((_, row) => (
+          <div key={row} className="grid grid-cols-12 gap-4 p-4 border-b">
+            {[...Array(6)].map((_, col) => (
+              <Skeleton key={`${row}-${col}`} className="h-4 w-full" />
+            ))}
+          </div>
+        ))}
+        <div className="flex justify-between items-center p-4">
+          <Skeleton className="h-4 w-32" />
+          <div className="flex space-x-2">
+            <Skeleton className="h-9 w-9 rounded-md" />
+            <Skeleton className="h-9 w-9 rounded-md" />
+            <Skeleton className="h-9 w-9 rounded-md" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   // Show loading state when fetching data
   if (isLoading && allData.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="space-y-6 p-4 md:p-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-32 mt-2" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-24" />
+          </div>
+        </div>
+        <LoadingStatsCards />
+        <LoadingTable />
       </div>
     );
   }
@@ -169,55 +272,85 @@ export default function Applicants() {
     <div className={`space-y-6 animate-fade-in p-4 md:p-6 bg-background text-foreground`}>
       {/* Header */}
       <div className="flex flex-col space-y-2">
-        <h1 className="text-2xl md:text-3xl font-bold">Applicants</h1>
-        <p className="text-muted-foreground">
-          Manage candidate applications and track their progress
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Applicants</h1>
+            <p className="text-muted-foreground mt-1">
+              {allData.length} total applicants
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm">
+              <BarChart2 className="w-4 h-4 mr-2" />
+              View Analytics
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Stats Cards */}
       <ApplicantsStats applicants={allData} />
 
-      {/* Search, Filter and Actions */}
+      {/* Search and Filter */}
       <ApplicantFilters
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
-        onRefresh={refetch}
-        isLoading={isLoading}
+        appliedForFilter={appliedForFilter}
+        onAppliedForFilterChange={setAppliedForFilter}
+        onRefresh={handleRefresh}
+        isLoading={isLoading || isRefreshing || isLoadingJobTitles}
+        jobTitles={allJobTitles}
       />
-
-      <div className="flex items-center justify-end mb-4">
-        <Button variant="outline" onClick={() => window.location.href = '/analytics'}>
-          <BarChart2 className="w-4 h-4 mr-2" />
-          View Analytics
-        </Button>
-      </div>
 
       {/* Applicants Table */}
       <Card className="border-border">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Candidate Pipeline</CardTitle>
-          <CardDescription>Search and filter candidate applications</CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="text-lg">Candidate Pipeline</CardTitle>
+              <CardDescription>Search and filter candidate applications</CardDescription>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`h-8 w-8 p-0 transition-all duration-300 ${isRefreshing ? 'scale-90' : 'hover:scale-105'}`}
+              title="Refresh table"
+            >
+              <RefreshCw className={`h-4 w-4 transition-transform duration-300 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          <ApplicantsTable
-            applicants={currentPageData}
-            onViewProfile={handleViewProfile}
-            sortConfig={sortConfig}
-            onSort={requestSort}
-            isLoading={isLoading}
-          />
+          {isLoading ? (
+            <LoadingTable />
+          ) : (
+            <ApplicantsTable
+              applicants={currentPageData}
+              onViewProfile={handleViewProfile}
+              sortConfig={sortConfig}
+              onSort={requestSort}
+              isLoading={false}
+            />
+          )}
           
           {/* Pagination Controls */}
-          <div className="flex items-center justify-between px-6 py-4 border-t">
+          <div className="flex items-center justify-between px-2">
             <div className="text-sm text-muted-foreground">
-              Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
-              <span className="font-medium">
-                {Math.min(endIndex, sortedAndFilteredApplicants.length)}
-              </span>{' '}
-              of <span className="font-medium">{sortedAndFilteredApplicants.length}</span> applicants
+              {sortedAndFilteredApplicants.length > 0 ? (
+                <>
+                  Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
+                  <span className="font-medium">
+                    {Math.min(endIndex, sortedAndFilteredApplicants.length)}
+                  </span>{' '}
+                  of <span className="font-medium">{sortedAndFilteredApplicants.length}</span> candidates
+                </>
+              ) : (
+                'No candidates found'
+              )}
             </div>
             <div className="flex items-center space-x-2">
               <Button
@@ -270,9 +403,15 @@ export default function Applicants() {
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] p-0 overflow-hidden">
+        <DialogContent className="max-w-6xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Candidate Details</DialogTitle>
+            <DialogDescription>
+              View and manage candidate application details
+            </DialogDescription>
+          </DialogHeader>
           {selectedApplicant && (
-            <div className="flex flex-col h-full">
+            <>
               {/* Header with name and score */}
               <div className="p-6 border-b">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -313,7 +452,7 @@ export default function Applicants() {
                 </div>
               </div>
               
-              {/* Main content with two columns */}
+              {/* Main content with two columns - Now scrollable */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 flex-1 overflow-auto">
                 {/* Left Column - CV Preview */}
                 <div className="h-full flex flex-col">
@@ -373,7 +512,7 @@ export default function Applicants() {
                   )}
                 </div>
                 
-                {/* Right Column - Applicant Details */}
+                {/* Right Column - Applicant Details - Now scrollable */}
                 <div className="h-full overflow-y-auto">
                   <div className="space-y-6">
                     {/* Contact Information */}
@@ -498,13 +637,6 @@ export default function Applicants() {
               </div>
 
               <DialogFooter className="p-6 border-t">
-                <div className="text-sm text-muted-foreground">
-                  Applied on {new Date(selectedApplicant.appliedDate).toLocaleDateString(undefined, {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </div>
                 <Button 
                   variant="outline" 
                   onClick={() => setIsViewDialogOpen(false)}
@@ -512,7 +644,7 @@ export default function Applicants() {
                   Close
                 </Button>
               </DialogFooter>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

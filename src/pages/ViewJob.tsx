@@ -1,43 +1,154 @@
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Calendar, MapPin, Briefcase, Users, DollarSign, FileText, Clock, Edit } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { ArrowLeft, Calendar, MapPin, Briefcase, Users, DollarSign, FileText, Clock, Edit, Loader2, Save, X } from "lucide-react";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
-// Mock data - in a real app, this would come from an API
-const mockJobs = [
-  {
-    id: 1,
-    title: "Senior Frontend Developer",
-    department: "Engineering",
-    type: "Full-time",
-    location: "Paris, France",
-    remote: true,
-    status: "Active",
-    applicants: 23,
-    postedDate: "2024-01-15",
-    salary: "€60k - €80k",
-    urgency: "High",
-    description: "We are looking for an experienced Frontend Developer to join our team. You will be responsible for building user interfaces and implementing features for our web applications.",
-    requirements: [
-      "5+ years of experience with React.js",
-      "Strong proficiency in JavaScript, including DOM manipulation and the JavaScript object model",
-      "Experience with popular React.js workflows (such as Redux or Context API)",
-      "Familiarity with RESTful APIs and modern front-end build pipelines and tools",
-      "Experience with common front-end development tools such as Babel, Webpack, NPM, etc.",
-      "Ability to understand business requirements and translate them into technical requirements"
-    ]
-  },
-  // Add more mock jobs as needed
-];
+interface Job {
+  ID: number;
+  "Intitulé du Poste": string;
+  "Description du Poste": string;
+  "Type d'Emploi": string;
+  "Localisation": string;
+  "Active": boolean;
+  // Add other fields from the API response as needed
+  status?: string;
+  salary?: string;
+  urgency?: string;
+  requirements?: string[];
+  // Add computed properties for display
+  title?: string;
+  description?: string;
+  type?: string;
+  location?: string;
+}
 
 export default function ViewJob() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [job, setJob] = useState<Job | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<Partial<Job>>({});
   
-  // In a real app, you would fetch the job details using the ID
-  const job = mockJobs.find(job => job.id === Number(id));
+  useEffect(() => {
+    const fetchJob = async () => {
+      try {
+        setIsLoading(true);
+        const response = await api.getJob(Number(id));
+        // Handle array response (API returns an array with one job object)
+        const jobData = Array.isArray(response) ? response[0] : response;
+        
+        // Map API fields to our component's expected format
+        const mappedJob = {
+          ...jobData,
+          title: jobData["Intitulé du Poste"],
+          description: jobData["Description du Poste"],
+          type: jobData["Type d'Emploi"],
+          location: jobData["Localisation"],
+          status: jobData["Active"] ? 'Active' : 'Inactive',
+          // Add default values for optional fields
+          requirements: jobData.requirements || [],
+          salary: jobData.salary || 'N/A',
+          urgency: jobData.urgency || 'medium'
+        };
+        
+        setJob(mappedJob);
+      } catch (error) {
+        console.error("Error fetching job:", error);
+        toast.error("Failed to load job details");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchJob();
+    }
+  }, [id]);
+
+  const handleUpdateJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!job) return;
+    
+    try {
+      setIsUpdating(true);
+      // Map form data back to API format
+      const apiData = {
+        "Intitulé du Poste": formData.title || job["Intitulé du Poste"],
+        "Description du Poste": formData.description || job["Description du Poste"],
+        "Type d'Emploi": formData.type || job["Type d'Emploi"],
+        "Localisation": formData.location || job["Localisation"],
+        "Active": formData.status === 'Active',
+        // Add other fields as needed
+      };
+      
+      const updatedJob = await api.updateJob(job.ID, apiData);
+      setJob(prev => ({
+        ...prev,
+        ...updatedJob,
+        title: apiData["Intitulé du Poste"],
+        description: apiData["Description du Poste"],
+        type: apiData["Type d'Emploi"],
+        location: apiData["Localisation"],
+        status: apiData["Active"] ? 'Active' : 'Inactive'
+      }));
+      
+      toast.success("Job updated successfully");
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating job:", error);
+      toast.error("Failed to update job");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  const handleInputChange = (field: keyof Job, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+  
+  const startEditing = () => {
+    if (!job) return;
+    
+    setFormData({
+      title: job.title || job["Intitulé du Poste"],
+      description: job.description || job["Description du Poste"],
+      type: job.type || job["Type d'Emploi"],
+      location: job.location || job["Localisation"],
+      status: job.status || (job["Active"] ? 'Active' : 'Inactive'),
+      salary: job.salary,
+      urgency: job.urgency
+    });
+    
+    setIsEditing(true);
+  };
+  
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setFormData({});
+  };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8 flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   if (!job) {
     return (
@@ -56,7 +167,9 @@ export default function ViewJob() {
     );
   }
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status?: string) => {
+    if (!status) return <Badge variant="outline">Unknown</Badge>;
+    
     switch (status.toLowerCase()) {
       case 'active':
         return <Badge className="bg-green-100 text-green-800">Active</Badge>;
@@ -71,7 +184,9 @@ export default function ViewJob() {
     }
   };
 
-  const getUrgencyBadge = (urgency: string) => {
+  const getUrgencyBadge = (urgency?: string) => {
+    if (!urgency) return <Badge variant="outline">Normal Priority</Badge>;
+    
     switch (urgency.toLowerCase()) {
       case 'high':
         return <Badge variant="destructive">High Priority</Badge>;
@@ -86,58 +201,174 @@ export default function ViewJob() {
 
   return (
     <div className="container mx-auto py-8">
-      <Button
-        variant="ghost"
-        className="mb-6"
-        onClick={() => navigate(-1)}
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Jobs
-      </Button>
+      <div className="flex justify-between items-center mb-6">
+        <Button
+          variant="ghost"
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Jobs
+        </Button>
+        
+        {!isEditing ? (
+          <Button
+            variant="outline"
+            onClick={startEditing}
+            disabled={isLoading || isUpdating}
+          >
+            <Edit className="mr-2 h-4 w-4" />
+            Edit Job
+          </Button>
+        ) : (
+          <div className="space-x-2">
+            <Button
+              variant="outline"
+              onClick={cancelEditing}
+              disabled={isUpdating}
+            >
+              <X className="mr-2 h-4 w-4" />
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateJob}
+              disabled={isUpdating}
+            >
+              {isUpdating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Save Changes
+            </Button>
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader className="pb-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-2xl">{job.title}</CardTitle>
-                  <div className="flex items-center space-x-4 mt-2">
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Briefcase className="mr-2 h-4 w-4" />
-                      {job.department}
+              {isEditing ? (
+                <form onSubmit={handleUpdateJob} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Job Title</Label>
+                    <Input
+                      id="title"
+                      value={formData.title || ''}
+                      onChange={(e) => handleInputChange('title', e.target.value)}
+                      placeholder="Enter job title"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="type">Job Type</Label>
+                      <Select
+                        value={formData.type || ''}
+                        onValueChange={(value) => handleInputChange('type', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select job type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Temps plein (CDI)">Full Time (Permanent)</SelectItem>
+                          <SelectItem value="Temps partiel">Part Time</SelectItem>
+                          <SelectItem value="Contrat à durée déterminée">Fixed Term</SelectItem>
+                          <SelectItem value="Freelance">Freelance</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <MapPin className="mr-2 h-4 w-4" />
-                      {job.remote ? `${job.location} (Remote)` : job.location}
-                    </div>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <DollarSign className="mr-2 h-4 w-4" />
-                      {job.salary}
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Location</Label>
+                      <Input
+                        id="location"
+                        value={formData.location || ''}
+                        onChange={(e) => handleInputChange('location', e.target.value)}
+                        placeholder="Enter location"
+                        required
+                      />
                     </div>
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="status"
+                        checked={formData.status === 'Active'}
+                        onCheckedChange={(checked) => 
+                          handleInputChange('status', checked ? 'Active' : 'Inactive')
+                        }
+                      />
+                      <Label htmlFor="status">
+                        {formData.status === 'Active' ? 'Active' : 'Inactive'}
+                      </Label>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Job Description</Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description || ''}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                      placeholder="Enter job description"
+                      rows={6}
+                      required
+                    />
+                  </div>
+                </form>
+              ) : (
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-2xl">{job.title || job["Intitulé du Poste"] || 'Untitled Position'}</CardTitle>
+                    <div className="flex items-center space-x-4 mt-2">
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Briefcase className="mr-2 h-4 w-4" />
+                        {job.type || job["Type d'Emploi"] || 'N/A'}
+                      </div>
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <MapPin className="mr-2 h-4 w-4" />
+                        {job.location || job["Localisation"] || 'Location not specified'}
+                      </div>
+                      {job.salary && job.salary !== 'N/A' && (
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <DollarSign className="mr-2 h-4 w-4" />
+                          {job.salary}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    {getStatusBadge(job.status)}
+                    {job.urgency && getUrgencyBadge(job.urgency)}
+                  </div>
                 </div>
-                <div className="flex space-x-2">
-                  {getStatusBadge(job.status)}
-                  {getUrgencyBadge(job.urgency)}
-                </div>
-              </div>
+              )}
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Job Description</h3>
-                  <p className="text-muted-foreground">{job.description}</p>
-                </div>
+                {!isEditing && (
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Job Description</h3>
+                    <p className="text-muted-foreground whitespace-pre-line">
+                      {job.description || job["Description du Poste"] || 'No description available.'}
+                    </p>
+                  </div>
+                )}
 
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Requirements</h3>
-                  <ul className="space-y-2 list-disc pl-5 text-muted-foreground">
-                    {job.requirements.map((req, index) => (
-                      <li key={index}>{req}</li>
-                    ))}
-                  </ul>
-                </div>
+                {job.requirements && job.requirements.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Requirements</h3>
+                    <ul className="space-y-2 list-disc pl-5 text-muted-foreground">
+                      {job.requirements.map((req, index) => (
+                        <li key={index}>{req}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
